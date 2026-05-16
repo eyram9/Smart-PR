@@ -1,77 +1,60 @@
 import { useState, useEffect } from 'react'
 
-export default function App() {
-  // Mock data for demonstration
-  const prData = {
-    title: "feat: Add user authentication system",
-    author: "john.doe",
-    branch: "feature/auth-system",
-    qualityScore: 87,
-    timestamp: "2 hours ago",
-    status: "In Review",
-    reviewers: 3,
-    comments: 12,
-    securityFindings: [
-      {
-        id: 1,
-        severity: "high",
-        title: "Potential SQL Injection",
-        file: "src/auth/login.js",
-        line: 45,
-        description: "User input is directly concatenated into SQL query without sanitization"
-      },
-      {
-        id: 2,
-        severity: "medium",
-        title: "Weak Password Hashing",
-        file: "src/auth/password.js",
-        line: 23,
-        description: "Using MD5 for password hashing. Consider using bcrypt or Argon2"
-      },
-      {
-        id: 3,
-        severity: "low",
-        title: "Missing Rate Limiting",
-        file: "src/api/routes.js",
-        line: 12,
-        description: "Login endpoint lacks rate limiting, vulnerable to brute force attacks"
-      }
-    ],
-    performanceFindings: [
-      {
-        id: 1,
-        impact: "high",
-        title: "N+1 Query Problem",
-        file: "src/models/user.js",
-        line: 78,
-        description: "Multiple database queries in loop. Use eager loading instead"
-      },
-      {
-        id: 2,
-        impact: "medium",
-        title: "Large Bundle Size",
-        file: "src/components/Dashboard.jsx",
-        line: 5,
-        description: "Importing entire lodash library. Use specific imports to reduce bundle size"
-      },
-      {
-        id: 3,
-        impact: "low",
-        title: "Unoptimized Image",
-        file: "src/assets/hero.png",
-        line: 0,
-        description: "Image size is 2.4MB. Consider compression and WebP format"
-      }
-    ]
-  }
+const API_URL = 'http://localhost:3001/api'
 
+export default function App() {
+  const [prData, setPrData] = useState(null)
   const [selectedFinding, setSelectedFinding] = useState(null)
   const [activeTab, setActiveTab] = useState('overview')
   const [isAnimated, setIsAnimated] = useState(false)
+  const [prUrl, setPrUrl] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     setIsAnimated(true)
   }, [])
+
+  const analyzePR = async () => {
+    if (!prUrl.trim()) {
+      setError('Please enter a GitHub PR URL')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    setPrData(null)
+    setSelectedFinding(null)
+
+    try {
+      const response = await fetch(`${API_URL}/analyze-pr`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prUrl }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Analysis failed')
+      }
+
+      setPrData(result.data)
+    } catch (err) {
+      setError(err.message)
+      console.error('Analysis error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      analyzePR()
+    }
+  }
 
   const getSeverityColor = (severity) => {
     switch (severity) {
@@ -134,7 +117,48 @@ export default function App() {
       </header>
 
       <main className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* PR Info Card - Flat design */}
+        {/* PR URL Input */}
+        <div className="mb-6 bg-[#141720] border border-[rgba(255,255,255,0.06)] rounded-lg p-6">
+          <h3 className="text-lg font-bold text-white mb-4">Analyze Pull Request</h3>
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={prUrl}
+              onChange={(e) => setPrUrl(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="https://github.com/owner/repo/pull/123"
+              className="flex-1 px-4 py-2.5 bg-[#0c0e13] border border-[rgba(255,255,255,0.06)] rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 transition-colors"
+              disabled={loading}
+            />
+            <button
+              onClick={analyzePR}
+              disabled={loading}
+              className="px-6 py-2.5 text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-[#0c0e13] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Analyzing...' : 'Analyze'}
+            </button>
+          </div>
+          {error && (
+            <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="mb-6 bg-[#141720] border border-[rgba(255,255,255,0.06)] rounded-lg p-12">
+            <div className="flex flex-col items-center justify-center">
+              <div className="w-12 h-12 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mb-4"></div>
+              <p className="text-slate-400 text-sm">Analyzing PR with AI...</p>
+              <p className="text-slate-600 text-xs mt-1">This usually takes 10-20 seconds</p>
+            </div>
+          </div>
+        )}
+
+        {/* PR Info Card - Only show when data is loaded */}
+        {prData && (
+          <>
         <div className="mb-6 bg-[#141720] border border-[rgba(255,255,255,0.06)] rounded-lg p-6">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
@@ -436,6 +460,23 @@ users.forEach(user => {
             <h3 className="text-base font-bold text-white mb-1">Select a Finding</h3>
             <p className="text-sm text-slate-500 text-center max-w-md">
               Choose a finding to view analysis and fixes
+            </p>
+          </div>
+        )}
+        </>
+        )}
+
+        {/* Initial Empty State - No PR analyzed yet */}
+        {!prData && !loading && !error && (
+          <div className="flex flex-col items-center justify-center py-20 px-4">
+            <div className="w-16 h-16 rounded-full bg-[#141720] border border-[rgba(255,255,255,0.06)] flex items-center justify-center mb-4">
+              <svg className="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-base font-bold text-white mb-1">Ready to Analyze</h3>
+            <p className="text-sm text-slate-500 text-center max-w-md">
+              Enter a GitHub PR URL above to start AI-powered analysis
             </p>
           </div>
         )}
