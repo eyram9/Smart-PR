@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Production API URL - Replace with your Render backend URL
+const PRODUCTION_API_URL = 'https://smart-pr-backend.onrender.com';
+
+// Use production URL if not running locally
+const API_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:3001'
+  : PRODUCTION_API_URL;
 
 export default function App() {
   const [prData, setPrData] = useState(null)
