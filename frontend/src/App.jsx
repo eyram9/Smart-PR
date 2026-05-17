@@ -56,7 +56,7 @@ export default function App() {
       setLoadingStep('Fetching PR from GitHub...')
       await new Promise(resolve => setTimeout(resolve, 500))
 
-      const response = await fetch(`${API_URL}/analyze-pr`, {
+      const response = await fetch(`${API_URL}/api/analyze-pr`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
